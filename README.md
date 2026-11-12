@@ -4,7 +4,7 @@
 
 `Windows` · `Python 3.10+` · `Tkinter + ctypes`
 
-[Quick start](#quick-start) · [Features](#features) · [Compatibility](#compatibility) · [Calibration](#hid-diagnostics-and-calibration) · [Upload to GitHub](#upload-to-github)
+[Quick start](#quick-start) · [Features](#features) · [Compatibility](#compatibility) · [Calibration](#hid-diagnostics-and-calibration)
 
 ## Quick start
 
@@ -88,18 +88,6 @@ Chargeview uses the Python standard library. Settings and battery history stay u
 ## Releases
 
 Run `Chargeview.exe` for the standalone Windows release. The Crush80 battery reading is supported over Bluetooth LE.
-
-## Upload to GitHub
-
-Extract the source ZIP and upload its contents, including `.gitignore`, to the root of a new empty repository. Keep this README at the repository root. For a Git upload, run these commands in the extracted folder and replace the example URL with your repository URL.
-
-```powershell
-git init -b main
-git add .
-git commit -m "Initial Chargeview source release"
-git remote add origin https://github.com/YOUR-USERNAME/chargeview.git
-git push -u origin main
-```
 
 ## Credits and licensing
 
