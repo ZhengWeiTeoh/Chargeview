@@ -34,7 +34,7 @@ Closing either popup leaves monitoring active. Use **Exit Chargeview** to stop t
 | Device | Connection or protocol | Verification |
 | --- | --- | --- |
 | Rapoo VT3 V2 | 2.4 GHz USB receiver `24AE:1462` | Battery, charging, active DPI slot, X/Y DPI, and polling rate verified on hardware. |
-| WOBKEY Crush80 | Bluetooth LE | Battery percentage verified on hardware through Windows. |
+| WOBKEY Crush80 | Bluetooth LE | Shows the percentage reported to Windows while connected. Hides it when disconnected. |
 | WOBKEY Crush80 | 2.4 GHz USB receiver `320F:5088` | Manual HID calibration is available. The receiver's battery protocol is still unverified. |
 
 A dash means no percentage is available. After a missed reading, Chargeview marks any previously reported value as **Last known**.

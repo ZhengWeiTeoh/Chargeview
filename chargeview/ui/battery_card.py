@@ -45,7 +45,7 @@ class Card:
             canvas.create_text(x, px(140), text=reading.status, anchor="nw",
                                fill="#b9b4c9", width=w-px(34), tags="text", font=("Segoe UI", 9))
         source = reading.source
-        if reading.stale:
+        if reading.stale and reading.time is not None:
             source += f"  ·  {reading.time.astimezone():%b %d %H:%M}"
         canvas.create_text(x, h-px(22), text=source, anchor="sw", fill="#c2bccd",
                            width=w-px(34), tags="text", font=("Segoe UI", 8))

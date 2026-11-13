@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 from chargeview import APP_NAME, INTERVALS, NAMES, battery_estimates
-from chargeview.hardware.bluetooth_battery import crush80_level
+from chargeview.hardware.bluetooth_battery import crush80_battery
 from chargeview.hardware import windows_hid as hid
 from chargeview import settings, windows_startup as startup
 from chargeview.ui import windows_tray as native
@@ -119,7 +119,8 @@ class Panel:
                     pass
             source = "Rapoo HID telemetry" if index == 0 else "Calibrated HID protocol"
             runtime = battery_estimates.cached_text(cached) if stamp else None
-            self.update_battery_icon(index, level, "Last known" if stamp else "Waiting for data",
+            self.update_battery_icon(index, level if index == 0 else None,
+                                     "Last known" if stamp and index == 0 else "Waiting for data",
                                      source, stamp, runtime)
         self.update_tray()
         self.refresh()
@@ -197,9 +198,6 @@ class Panel:
                 readings.append(mouse_read(paths, stop))
             except OSError as error:
                 readings.append((None, f"Receiver error {error.winerror}", "Rapoo HID telemetry", None))
-            bluetooth_level = crush80_level()
-            if bluetooth_level is not None:
-                return [*readings, (bluetooth_level, "Connected", "Windows Bluetooth LE", None)]
             profile = settings.load()
             calibrated_path = (profile.get("keyboard") or {}).get("path", "").lower()
             candidates = [hid.describe(path) for path in paths
@@ -208,6 +206,11 @@ class Panel:
                 readings.append((*settings.keyboard_battery(candidates, profile, stop), None))
             except (OSError, ValueError, KeyError) as error:
                 readings.append((None, str(error), "Calibrated HID protocol", None))
+            if readings[1][0] is None:
+                bluetooth_level, connected = crush80_battery()
+                if connected is not None:
+                    status = ("Connected" if bluetooth_level is not None else "Battery unavailable") if connected else "Disconnected"
+                    readings[1] = (bluetooth_level, status, "Windows Bluetooth LE", None)
             return readings
 
         if not self.worker.start(action, self.refreshed):
@@ -216,7 +219,9 @@ class Panel:
     def update_battery_icon(self, index, level, status, source, recorded_at=None, runtime=None):
         reading = self.readings[index]
         charging = status == "Charging"
-        if level is not None:
+        if index == 1 and level is None:
+            reading.level = reading.time = reading.runtime = None
+        elif level is not None:
             reading.level = level
             reading.time = recorded_at or datetime.now(timezone.utc)
             reading.runtime = runtime
@@ -224,10 +229,10 @@ class Panel:
             reading.level = reading.time = reading.runtime = None
         elif reading.charging:
             reading.runtime = None
-        stale = reading.time is not None and (level is None or recorded_at is not None)
+        stale = reading.level is not None and (level is None or recorded_at is not None)
         reading.stale, reading.charging = stale, charging
         reading.status, reading.source = status, source
-        if reading.level is not None and not reading.runtime:
+        if reading.level is not None and not stale and not reading.runtime:
             reading.runtime = "Estimating…"
         stamp = reading.time
         runtime = reading.runtime
@@ -241,6 +246,9 @@ class Panel:
         devices, lines = [], []
         for name, reading in zip(NAMES, self.readings):
             devices.append((reading.level, native.battery_color(reading.level, reading.charging)))
+            if reading.status in ("Disconnected", "Keyboard disconnected", "Calibrated interface disconnected"):
+                lines.append(f"{name}: Disconnected")
+                continue
             value = "—" if reading.level is None else f"{reading.level}%"
             details = []
             if reading.level is None:
@@ -248,7 +256,8 @@ class Panel:
             else:
                 if reading.charging:
                     details.append("Charging")
-                details.append(reading.runtime or "Estimating…")
+                if not reading.stale:
+                    details.append(reading.runtime or "Estimating…")
             if reading.stale:
                 details.append("Last known")
             lines.append(f"{name}: {value} · {' · '.join(details)}")
