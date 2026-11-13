@@ -42,8 +42,17 @@ $operation = $info::FindAllAsync($ble::GetDeviceSelectorFromPairingState($true),
 $task = $asTask.MakeGenericMethod($collection).Invoke($null, @($operation))
 $task.Wait()
 foreach ($device in $task.Result) {
-    if ($device.Properties['System.Devices.Aep.IsConnected'] -eq $true) {
-        $device.Properties['System.Devices.Aep.DeviceAddress']
+    $connected = $false
+    $address = $null
+    # Windows PowerShell exposes the WinRT property map as key/value entries.
+    foreach ($entry in $device.Properties) {
+        switch ($entry.Key) {
+            'System.Devices.Aep.IsConnected' { $connected = $entry.Value -eq $true }
+            'System.Devices.Aep.DeviceAddress' { $address = $entry.Value }
+        }
+    }
+    if ($connected -and $address) {
+        $address
     }
 }
 """
