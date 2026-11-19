@@ -1,101 +1,69 @@
 # Chargeview
 
-**Battery status for your wireless mouse and keyboard in one Windows tray icon.**
+A compact Windows tray app for Rapoo VT3 V2 and WOBKEY Crush80 battery status.
 
-`Windows` · `Python 3.10+` · `Tkinter + ctypes`
+Version 2 uses C#, WinForms, Windows HID APIs, and the Windows Bluetooth API. The executable uses the .NET Framework installed with Windows 10 and Windows 11. Python is unnecessary. The release build is approximately 167 KB.
 
-[Quick start](#quick-start) · [Features](#features) · [Compatibility](#compatibility) · [Calibration](#hid-diagnostics-and-calibration)
+## Run
 
-## Quick start
+Download `Chargeview.Native.exe` from Releases and open it. When building from source, the executable is written to `dist/Chargeview.Native.exe`.
 
-1. Install Python 3.10 or later with Tkinter support.
-2. Extract the source ZIP or clone the repository.
-3. Double-click `start.pyw`, or run `python start.pyw` in the project folder.
+- Left-click the tray icon to open the two device cards.
+- Right-click for refresh, settings, and exit.
+- Hover for device names, battery percentages, and estimates.
+- Close the popup to keep monitoring in the tray.
+- Enable **Start with Windows** in Settings for a per-user sign-in task. Windows Task Manager can disable its Startup folder entry.
 
-If Windows puts Chargeview under the **^** overflow arrow, drag its icon next to the clock.
+Version 2 has its own startup entry, single-instance lock, and preferences folder. When switching from the Python version, turn off its **Start with Windows** setting and exit it, then enable startup in version 2.
 
 ## Features
 
-- **One tray icon.** The mouse and keyboard have independent liquid fills and battery colors.
-- **Two device cards.** See battery levels, estimated runtime, and live Rapoo DPI and polling rate. Use **Open Rapoo Web Hub** for mouse configuration.
-- **Settings.** Use the gear beside Refresh to change startup and refresh preferences, open Windows tray settings, or access HID calibration.
-- **Adjustable refresh.** Select 30s, 1min, 2min, 5min, or 10min. The default is 1min.
-
-| Tray action | What opens |
-| --- | --- |
-| Hover | Device names, battery percentages, and estimates when available |
-| Left-click | Device panel with the mouse on the left and keyboard on the right |
-| Right-click | Compact battery menu and app controls |
-
-Closing either popup leaves monitoring active. Use **Exit Chargeview** to stop the app.
-
-Enable **Settings → Start with Windows** to install a per-user sign-in task that starts Chargeview without a configured delay. If startup is already enabled in an older version, switch it off and on once after opening the new version. The task honors the Startup folder entry, so the app switch and Task Manager can still disable startup. The tray briefly retries registration while the Windows taskbar is starting.
+- Independent mouse and keyboard battery fills in one tray icon.
+- Green at 60–100%, yellow at 30–59%, red below 30%, blue while charging.
+- Crush80 Bluetooth connection checks without starting PowerShell.
+- Disconnected keyboard percentages are hidden.
+- Rapoo onboard DPI slot, X/Y DPI, and polling rate. Onboard settings refresh while the device panel is open.
+- Rapoo Web Hub link.
+- Refresh intervals of 30 seconds, 1 minute, 2 minutes, 5 minutes, or 10 minutes.
+- Battery runtime and charging estimates, learned from observed readings.
+- Reuses compatible battery history from the Python version on its first run. It stores its own preferences and learned rates under `%LOCALAPPDATA%\ChargeviewNative`.
+- HID interface inventory and read-only Feature Report inspection.
 
 ## Compatibility
 
-| Device | Connection or protocol | Verification |
+| Device | Connection | Hardware verification |
 | --- | --- | --- |
-| Rapoo VT3 V2 | 2.4 GHz USB receiver `24AE:1462` | Battery, charging, active DPI slot, X/Y DPI, and polling rate verified on hardware. |
-| WOBKEY Crush80 | Bluetooth LE | Shows the percentage reported to Windows while connected. Hides it when disconnected. |
-| WOBKEY Crush80 | 2.4 GHz USB receiver `320F:5088` | Manual HID calibration is available. The receiver's battery protocol is still unverified. |
+| Rapoo VT3 V2 | 2.4 GHz receiver | Battery, active DPI slot, X/Y DPI, and polling rate verified. |
+| WOBKEY Crush80 | Bluetooth LE | Connected battery percentage and disconnected behavior verified. |
 
-A dash means no percentage is available. After a missed reading, Chargeview marks any previously reported value as **Last known**.
+The Crush80 battery query over its 2.4 GHz receiver remains unverified.
 
-## Reading the battery indicators
+HID diagnostics list device interfaces and read selected Feature Reports. Sending arbitrary test commands and saving custom battery-reading rules are available in the earlier Python implementation. Runtime and charging estimates depend on observed battery changes, and their long-term accuracy is still being evaluated.
 
-| Color | Meaning |
-| --- | --- |
-| Green | 60–100% |
-| Yellow | 30–59% |
-| Red | 0–29% |
-| Blue | Charging |
+The native interface redraws the Python version's lightning battery cards, purple panels, header icons, settings slider, refresh options, tray artwork, right-click menu, and fade animation using Windows graphics APIs.
 
-**Time remaining** uses observed discharge and appears after at least 30 minutes of readings and a two-percentage-point drop. **Time to full** uses observed charging and appears after at least five minutes of readings and a two-point gain. While Chargeview is collecting data, the card and hover tooltip show **Estimating…**. The estimate replaces that label when it is ready. Both can change with actual usage and charge rate.
+Text is rasterized at the display's physical pixel size. Card artwork and header icons are drawn without fractional resampling, and tray artwork uses the taskbar's icon size.
 
-## HID diagnostics and calibration
+## Build
 
-Open **Settings → HID calibration**, double-click `debug.cmd`, or run:
+Run `powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1` on 64-bit Windows. The script uses the Windows .NET Framework compiler and Windows Runtime metadata installed with Windows. It writes `dist/Chargeview.Native.exe`.
 
-```powershell
-python start.pyw --debug
-```
+The default build targets 32-bit Windows processes to reduce memory use on 64-bit Windows. To build a 64-bit executable, pass `-Platform x64`. Popup artwork is released when the panel closes and regenerated when needed.
 
-Select the keyboard interface and choose **Calibrate Feature** or **Calibrate Output → Input**. Use a battery report verified for your device and firmware. Enter the report ID or request, the expected response prefix if applicable, and the zero-based byte offset for the percentage. Save the calibration and refresh the tray.
+No packages are installed by the build script.
 
-## Source layout
+## Source
 
-```text
-start.pyw                 Windows launcher
-debug.cmd                 Open HID diagnostics
-chargeview/
-  app.py                  App lifecycle and battery refresh
-  battery_estimates.py    Discharge and charging estimates
-  settings.py             Local preferences and battery history
-  windows_startup.py      Windows Startup shortcut
-  hardware/
-    bluetooth_battery.py  Crush80 battery via Windows Bluetooth LE
-    windows_hid.py        Windows HID transport
-    rapoo.py              Rapoo onboard settings
-  ui/
-    battery_card.py       Device battery card
-    device_popup.py       Device popup and tray menu
-    diagnostics.py       HID calibration and report tools
-    popup_art.py         Scalable graphics
-    theme.py             Shared UI colors and text styles
-    windows_tray.py      Native tray icon and hover tooltip
-```
+- `src/Program.cs` — tray, device cards, settings, and app lifecycle
+- `src/Appearance.cs` — original Chargeview artwork and popup layouts
+- `src/Hardware.cs` — HID enumeration, mouse telemetry, and onboard settings
+- `src/BluetoothBattery.cs` — Bluetooth connection and battery reading
+- `src/Battery.cs` — preferences and battery estimates
+- `src/Startup.cs` — startup shortcut and sign-in task
+- `src/Diagnostics.cs` — HID inventory and Feature Report inspection
+- `src/TrayTooltip.cs` — extended tray tooltip
+- `src/SelfTest.cs` — explicit hardware verification command
 
-Chargeview uses the Python standard library. Settings and battery history stay under `%LOCALAPPDATA%\DeskCharge`, a path retained for compatibility with earlier versions.
+## Credits
 
-## Releases
-
-Run `Chargeview.exe` for the standalone Windows release. The Crush80 battery reading is supported over Bluetooth LE.
-
-## Credits and licensing
-
-- [FerrisPulse](https://github.com/Ferris-echo/FerrisPulse) and [ClickSync](https://github.com/Nuitfanee/ClickSync) provided Rapoo protocol references.
-- [Rapoo Web Hub](https://hub.rapoo.com/home) provided the active-profile register layout reference.
-- [Voltide](https://github.com/sdparklab/Voltide) inspired the battery panel and tray menu.
-- [2.4G-battery-viewer](https://github.com/yszyszysz233/2.4G-battery-viewer) provided a HID diagnostics reference.
-
-See [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) for the retained rapoo-tray notice. A license for the original Chargeview source has yet to be selected.
+Rapoo register layouts follow the same protocol research used by the Python Chargeview project, including FerrisPulse, ClickSync, and Rapoo Web Hub. See `THIRD-PARTY-NOTICES.txt`.
