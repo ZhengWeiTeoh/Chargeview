@@ -3,7 +3,7 @@ from datetime import datetime
 
 HISTORY_HOURS = 168
 MIN_SECONDS = 30 * 60
-MIN_DROP = 3
+MIN_DROP = 2
 
 
 def update_history(previous, now, level, charging, interval):

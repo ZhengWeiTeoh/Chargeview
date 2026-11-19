@@ -11,6 +11,8 @@ CALLBACK = C.WINFUNCTYPE(LRESULT, W.HWND, W.UINT, UP, LRESULT)
 WM_TRAY = 0x8001
 WM_STOP = 0x8002
 WM_SHOW = 0x8003
+ICON_RETRY_TIMER = 3
+ICON_RETRY_LIMIT = 60
 
 
 class WindowClass(C.Structure):
@@ -204,6 +206,8 @@ class Tray:
         self.activate = activate
         self.defer = defer
         self.icons = {}
+        self.pending_icon = None
+        self.icon_retries = 0
         self.sync_callback = None
         self.callback = CALLBACK(self.dispatch)
         self.taskbar_created = register_message("TaskbarCreated")
@@ -229,12 +233,17 @@ class Tray:
         if message == self.taskbar_created:
             for _, data in self.icons.values():
                 notify(0, C.byref(data))
+            if self.pending_icon is not None:
+                self.defer(self.retry_icon)
             return 0
         if message == 0x113 and wparam == 1:
             self.defer(self.refresh)
             return 0
         if message == 0x113 and wparam == 2 and self.sync_callback:
             self.defer(self.run_settings_sync)
+            return 0
+        if message == 0x113 and wparam == ICON_RETRY_TIMER:
+            self.defer(self.retry_icon)
             return 0
         if message == WM_TRAY:
             if lparam == 0x202 and wparam == ICON_ID:
@@ -247,6 +256,15 @@ class Tray:
     def run_settings_sync(self):
         if self.sync_callback is not None:
             self.sync_callback()
+
+    def retry_icon(self):
+        if self.pending_icon is None:
+            return
+        if self.icon_retries < ICON_RETRY_LIMIT:
+            self.icon_retries += 1
+        self.update(*self.pending_icon)
+        if self.icon_retries >= ICON_RETRY_LIMIT:
+            kill_timer(self.hwnd, ICON_RETRY_TIMER)
 
     def update(self, devices, tip):
         previous = self.icons.get(ICON_ID)
@@ -273,10 +291,18 @@ class Tray:
         if not accepted:
             if not same_image:
                 destroy_icon(icon)
+            if not previous:
+                if self.pending_icon is None:
+                    set_timer(self.hwnd, ICON_RETRY_TIMER, 500, None)
+                self.pending_icon = devices, tip
             return
         if previous and not same_image:
             destroy_icon(previous[1].icon)
         self.icons[ICON_ID] = key, data
+        if self.pending_icon is not None:
+            kill_timer(self.hwnd, ICON_RETRY_TIMER)
+            self.pending_icon = None
+            self.icon_retries = 0
 
     def interval(self, seconds):
         if not set_timer(self.hwnd, 1, seconds * 1000, None):
@@ -293,6 +319,8 @@ class Tray:
 
     def close(self):
         self.watch_settings(None)
+        kill_timer(self.hwnd, ICON_RETRY_TIMER)
+        self.pending_icon = None
         kill_timer(self.hwnd, 1)
         for _, data in self.icons.values():
             notify(2, C.byref(data))

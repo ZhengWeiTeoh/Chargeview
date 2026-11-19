@@ -6,6 +6,8 @@ import subprocess
 import sys
 import time
 import winreg
+import tempfile
+from xml.sax.saxutils import escape
 
 from chargeview.hardware.windows_hid import GUID, P, bind, shell
 
@@ -116,6 +118,36 @@ def set_enabled(on):
     state += (0 if on else 116444736000000000 + time.time_ns() // 100).to_bytes(8, "little")
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, APPROVAL) as key:
         winreg.SetValueEx(key, NAME + ".lnk", 0, winreg.REG_BINARY, state)
+    if on:
+        install_signin_task()
+
+
+def install_signin_task():
+    """Install the early sign-in launcher when the user enables startup."""
+    account = os.environ["USERDOMAIN"] + "\\" + os.environ["USERNAME"]
+    target, *arguments = launch_command("--startup-tray")
+    xml = f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+<RegistrationInfo><Description>Starts Chargeview at sign-in when its Startup entry is enabled.</Description></RegistrationInfo>
+<Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{escape(account)}</UserId></LogonTrigger></Triggers>
+<Principals><Principal id="User"><UserId>{escape(account)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+<Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><ExecutionTimeLimit>PT0S</ExecutionTimeLimit></Settings>
+<Actions Context="User"><Exec><Command>{escape(str(target))}</Command><Arguments>{escape(subprocess.list2cmdline(arguments))}</Arguments><WorkingDirectory>{escape(str(ROOT))}</WorkingDirectory></Exec></Actions>
+</Task>"""
+    descriptor, filename = tempfile.mkstemp(suffix=".xml")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-16") as stream:
+            stream.write(xml)
+        subprocess.run(
+            [str(Path(os.environ["SystemRoot"]) / "System32/schtasks.exe"),
+             "/Create", "/TN", "Chargeview-" + os.environ["USERNAME"],
+             "/XML", filename, "/F"],
+            check=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+    except subprocess.CalledProcessError as error:
+        raise OSError("Windows could not install the early sign-in task.") from error
+    finally:
+        Path(filename).unlink(missing_ok=True)
 
 
 def setup_entries():

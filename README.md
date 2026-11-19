@@ -29,6 +29,8 @@ If Windows puts Chargeview under the **^** overflow arrow, drag its icon next to
 
 Closing either popup leaves monitoring active. Use **Exit Chargeview** to stop the app.
 
+Enable **Settings → Start with Windows** to install a per-user sign-in task that starts Chargeview without a configured delay. If startup is already enabled in an older version, switch it off and on once after opening the new version. The task honors the Startup folder entry, so the app switch and Task Manager can still disable startup. The tray briefly retries registration while the Windows taskbar is starting.
+
 ## Compatibility
 
 | Device | Connection or protocol | Verification |
@@ -48,7 +50,7 @@ A dash means no percentage is available. After a missed reading, Chargeview mark
 | Red | 0–29% |
 | Blue | Charging |
 
-**Time remaining** uses observed discharge and appears after at least 30 minutes of readings and a three-percentage-point drop. **Time to full** uses observed charging and appears after at least five minutes of readings and a two-point gain. While Chargeview is collecting data, the card and hover tooltip show **Estimating…**. The estimate replaces that label when it is ready. Both can change with actual usage and charge rate.
+**Time remaining** uses observed discharge and appears after at least 30 minutes of readings and a two-percentage-point drop. **Time to full** uses observed charging and appears after at least five minutes of readings and a two-point gain. While Chargeview is collecting data, the card and hover tooltip show **Estimating…**. The estimate replaces that label when it is ready. Both can change with actual usage and charge rate.
 
 ## HID diagnostics and calibration
 

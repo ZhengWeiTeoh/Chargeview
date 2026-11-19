@@ -325,7 +325,12 @@ def main():
     parser = argparse.ArgumentParser()
     for name in ("tray", "debug", "setup", "stop", "probe"):
         parser.add_argument("--" + name, action="store_true")
+    parser.add_argument("--startup-tray", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.startup_tray:
+        if not startup.enabled():
+            return
+        args.tray = True
     if args.setup:
         startup.setup_entries()
         if args.debug:
