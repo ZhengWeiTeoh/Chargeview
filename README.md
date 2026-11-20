@@ -44,6 +44,8 @@ The native interface redraws the Python version's lightning battery cards, purpl
 
 Text is rasterized at the display's physical pixel size. Card artwork and header icons are drawn without fractional resampling, and tray artwork uses the taskbar's icon size.
 
+Device, settings, and tray-menu popups use the destination monitor's DPI and work area. Their contents and click targets share the same scale, and oversized popups shrink to remain fully visible.
+
 ## Build
 
 Run `powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1` on 64-bit Windows. The script uses the Windows .NET Framework compiler and Windows Runtime metadata installed with Windows. It writes `dist/Chargeview.Native.exe`.
@@ -56,6 +58,7 @@ No packages are installed by the build script.
 
 - `src/Program.cs` — tray, device cards, settings, and app lifecycle
 - `src/Appearance.cs` — original Chargeview artwork and popup layouts
+- `src/PopupPlacement.cs` — per-monitor popup scaling and placement
 - `src/Hardware.cs` — HID enumeration, mouse telemetry, and onboard settings
 - `src/BluetoothBattery.cs` — Bluetooth connection and battery reading
 - `src/Battery.cs` — preferences and battery estimates

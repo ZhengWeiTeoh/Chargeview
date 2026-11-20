@@ -146,6 +146,8 @@ namespace ChargeviewNative
     {
         public Battery[] Readings;
         public int Mode,Interval=60;
+        public float ScaleFactor=1;
+        public bool Placing;
         public bool StartupEnabled;
         public Action<string> Command;
         readonly List<KeyValuePair<RectangleF,string>> hits=new List<KeyValuePair<RectangleF,string>>();
@@ -165,7 +167,7 @@ namespace ChargeviewNative
         }
         void TextAt(Graphics g,string text,float size,string color,float x,float y,bool bold=false,float width=0)
         {
-            float scale=g.DpiX/96f;
+            float scale=ScaleFactor;
             var state=g.Save();
             try
             {
@@ -184,9 +186,9 @@ namespace ChargeviewNative
             }
             finally{g.Restore(state);}
         }
-        static void ImageAt(Graphics g,Bitmap bitmap,float x,float y)
+        void ImageAt(Graphics g,Bitmap bitmap,float x,float y)
         {
-            float scale=g.DpiX/96f;
+            float scale=ScaleFactor;
             var state=g.Save();
             try
             {
@@ -206,7 +208,7 @@ namespace ChargeviewNative
             Color bg=hovered==kind?Artwork.Color("#443a60"):Mode==2?Artwork.Color("#302650"):BackColor;
             using(var path=DeviceCard.Rounded(Rectangle.Round(box),8))
             using(var brush=new SolidBrush(bg))g.FillPath(brush,path);
-            int size=Math.Max(1,(int)Math.Round(21*g.DpiX/96));
+            int size=Math.Max(1,(int)Math.Round(21*ScaleFactor));
             string key=kind+":"+bg.ToArgb()+":"+size;
             Bitmap image;
             if(!icons.TryGetValue(key,out image)){image=Artwork.Action(size,kind,bg);icons[key]=image;}
@@ -217,7 +219,7 @@ namespace ChargeviewNative
             Hit(bounds,command);
             using(var path=DeviceCard.Rounded(Rectangle.Round(bounds),7))
             using(var brush=new SolidBrush(Artwork.Color(hovered==command?"#49303c":"#2c2a34")))g.FillPath(brush,path);
-            float scale=g.DpiX/96f;
+            float scale=ScaleFactor;
             var state=g.Save();
             try
             {
@@ -234,7 +236,7 @@ namespace ChargeviewNative
             hits.Clear();
             Graphics g=e.Graphics;g.SmoothingMode=SmoothingMode.AntiAlias;
             g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-            float scale=g.DpiX/96f;g.ScaleTransform(scale,scale);
+            float scale=ScaleFactor;g.ScaleTransform(scale,scale);
             float width=Width/scale,height=Height/scale;
             using(var border=new Pen(Artwork.Color(Mode==2?"#534a6a":"#302849")))
             using(var shape=DeviceCard.Rounded(new Rectangle(0,0,(int)width-1,(int)height-1),Mode==2?14:18))g.DrawPath(border,shape);
@@ -330,7 +332,7 @@ namespace ChargeviewNative
             foreach(var hit in hits)if(hit.Key.Contains(logical))return hit.Value;
             return null;
         }
-        float DeviceDpiScale{get{using(var g=CreateGraphics())return g.DpiX/96f;}}
+        float DeviceDpiScale{get{using(var g=CreateGraphics())return ScaleFactor;}}
         public void ReleaseArtwork()
         {
             for(int i=0;i<cards.Length;i++)

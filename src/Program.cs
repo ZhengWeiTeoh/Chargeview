@@ -79,7 +79,7 @@ namespace ChargeviewNative
         Task refreshTask;
         bool loading,exiting,showingSettings,firstVisibility=true;
         int profileTicks;
-        float dpiScale=1;
+        Screen displayScreen=Screen.PrimaryScreen;
 
         public MainWindow(uint message,bool startHidden)
         {
@@ -89,8 +89,7 @@ namespace ChargeviewNative
             FormBorderStyle=FormBorderStyle.None;MaximizeBox=false;MinimizeBox=false;ShowInTaskbar=false;
             AutoScaleMode=AutoScaleMode.None;KeyPreview=true;
             Controls.Add(view);view.Dock=DockStyle.Fill;view.Readings=readings;view.Interval=preferences.Interval;
-            using(var graphics=CreateGraphics())dpiScale=graphics.DpiX/96f;
-            ClientSize=new Size((int)Math.Round(556*dpiScale),(int)Math.Round(412*dpiScale));
+            PositionPanel();
             animation=new Fade(this);
             view.Command=HandleCommand;
             KeyDown+=(s,e)=>{if(e.KeyCode==Keys.Escape)animation.To(0,Hide);};
@@ -125,15 +124,7 @@ namespace ChargeviewNative
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            if(Width>0 && Height>0)
-            {
-                using(var shape=DeviceCard.Rounded(new Rectangle(0,0,Width,Height),(int)Math.Round(18*dpiScale)))
-                {
-                    Region old=Region;
-                    Region=new Region(shape);
-                    if(old!=null)old.Dispose();
-                }
-            }
+            if(view!=null)PopupPlacement.Round(this,view.ScaleFactor,18);
         }
         protected override void OnVisibleChanged(EventArgs e)
         {
@@ -144,16 +135,23 @@ namespace ChargeviewNative
         {
             if(message.Msg==0x02E0)
             {
-                base.WndProc(ref message);
-                dpiScale=(message.WParam.ToInt64()&0xffff)/96f;
-                view.ReleaseArtwork();
-                ClientSize=new Size((int)Math.Round((showingSettings?365:556)*dpiScale),
-                    (int)Math.Round((showingSettings?262:412)*dpiScale));
-                PositionPanel();UpdateView();return;
+                if(!view.Placing)
+                {
+                    var bounds=((PopupPlacement.NativeRect)Marshal.PtrToStructure(message.LParam,typeof(PopupPlacement.NativeRect))).Rectangle;
+                    displayScreen=Screen.FromRectangle(bounds);
+                    PositionPanel((message.WParam.ToInt64()&0xffff)/96f);
+                }
+                message.Result=IntPtr.Zero;return;
             }
-            if(message.Msg==showMessage) OpenPanel();
-            if(message.Msg==stopMessage) {Exit();return;}
+            if(message.Msg==showMessage)OpenPanel();
+            if(message.Msg==stopMessage){Exit();return;}
+            int kind=message.Msg;
             base.WndProc(ref message);
+            if((kind==0x007E || kind==0x001A) && IsHandleCreated && !exiting)
+                BeginInvoke(new Action(()=>{
+                    if(exiting)return;
+                    displayScreen=Screen.PrimaryScreen;PositionPanel();UpdateView();
+                }));
         }
         [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern uint RegisterWindowMessage(string text);
         void Open(string target){try{Process.Start(new ProcessStartInfo(target){UseShellExecute=true});}catch(Exception error){MessageBox.Show(this,error.Message);}}
@@ -183,12 +181,12 @@ namespace ChargeviewNative
         {
             showingSettings=show;view.Mode=show?1:0;view.Interval=preferences.Interval;
             if(show)view.StartupEnabled=Startup.Enabled();
-            ClientSize=new Size((int)Math.Round((show?365:556)*dpiScale),(int)Math.Round((show?262:412)*dpiScale));
             PositionPanel();view.Invalidate();if(!show)RefreshSetup();
         }
         void OpenPanel()
         {
             if(menu!=null)menu.Close();
+            displayScreen=Screen.FromPoint(Cursor.Position);
             ToggleSettings(false);
             bool fresh=!Visible;if(fresh)Opacity=0;
             Show();PositionPanel();Activate();animation.To(1);RefreshBattery();
@@ -196,12 +194,9 @@ namespace ChargeviewNative
         void OpenMenu()
         {
             if(menu!=null)menu.Close();
-            var popup=new Form{Text="Chargeview menu",FormBorderStyle=FormBorderStyle.None,ShowInTaskbar=false,TopMost=true,StartPosition=FormStartPosition.Manual,AutoScaleMode=AutoScaleMode.None,BackColor=Artwork.Color("#131217"),Opacity=0,KeyPreview=true};
+            var surface=new PopupSurface{Mode=2,Readings=readings,BackColor=Artwork.Color("#131217")};
+            var popup=new PopupMenu(surface,Cursor.Position);
             menu=popup;
-            popup.ClientSize=new Size((int)Math.Round(291*dpiScale),(int)Math.Round(168*dpiScale));
-            using(var shape=DeviceCard.Rounded(new Rectangle(0,0,popup.Width,popup.Height),(int)Math.Round(14*dpiScale)))popup.Region=new Region(shape);
-            var surface=new PopupSurface{Dock=DockStyle.Fill,Mode=2,Readings=readings,BackColor=Artwork.Color("#131217")};
-            popup.Controls.Add(surface);
             var fade=new Fade(popup);
             surface.Command=command=>{
                 fade.To(0,()=>{
@@ -214,12 +209,12 @@ namespace ChargeviewNative
             popup.KeyDown+=(s,e)=>{if(e.KeyCode==Keys.Escape)fade.To(0,popup.Close);};
             popup.Deactivate+=(s,e)=>{if(!popup.IsDisposed)fade.To(0,popup.Close);};
             popup.FormClosed+=(s,e)=>{if(menu==popup)menu=null;};
-            Rectangle area=Screen.FromPoint(Cursor.Position).WorkingArea;
-            popup.Location=new Point(Math.Max(area.Left,Math.Min(Cursor.Position.X-popup.Width/2,area.Right-popup.Width)),
-                Math.Max(area.Top,Math.Min(Cursor.Position.Y-popup.Height-(int)Math.Round(5*dpiScale),area.Bottom-popup.Height)));
             popup.Show();popup.Activate();fade.To(1);
         }
-        void PositionPanel(){Rectangle area=Screen.FromPoint(Cursor.Position).WorkingArea;Location=new Point(area.Right-Width-12,area.Bottom-Height-12);}
+        void PositionPanel(float? scale=null)
+        {
+            PopupPlacement.Place(this,view,showingSettings?new Size(365,262):new Size(556,412),displayScreen,null,scale);
+        }
         void Save(){try{preferences.Save();}catch(Exception error){if(Environment.GetCommandLineArgs().Contains("--debug"))Trace.WriteLine(error);}}
         async void RefreshSetup()
         {
