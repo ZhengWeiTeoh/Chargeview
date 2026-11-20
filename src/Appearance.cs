@@ -172,7 +172,10 @@ namespace ChargeviewNative
                 // Let Windows rasterize text directly on the physical pixel grid.
                 g.ResetTransform();
                 Font font=FontAt(size,bold,scale);
-                var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.PreserveGraphicsClipping;
+                // The graphics transform is reset above. The HDC already clips to
+                // the control, so reapplying its transformed GDI+ clip truncates
+                // lower rows at fractional Windows display scaling.
+                var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix;
                 var bounds=new Rectangle((int)Math.Round(x*scale),(int)Math.Round(y*scale),
                     width>0?(int)Math.Round(width*scale):2000,
                     (int)Math.Ceiling(width>0?42*scale:Math.Max(42*scale,font.GetHeight(g)+4)));
